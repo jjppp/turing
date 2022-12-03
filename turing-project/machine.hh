@@ -67,6 +67,10 @@ class State {
         return _name == rhs._name;
     }
 
+    bool operator!=(const State &rhs) const {
+        return !(*this == rhs);
+    }
+
   private:
     std::string _name;
 };

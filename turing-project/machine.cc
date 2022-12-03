@@ -12,7 +12,16 @@
 using std::vector;
 
 bool Transition::match(State cur_state, vector<char> cur_syms) const {
-    return (cur_state == old_state() && cur_syms == old_syms());
+    if (cur_state != old_state()) {
+        return false;
+    }
+    for (size_t i = 0; i < cur_syms.size(); ++i) {
+        if (cur_syms.at(i) != old_syms().at(i)
+            && old_syms().at(i) != '*') {
+            return false;
+        }
+    }
+    return true;
 }
 
 void Tape::gc() {
@@ -131,7 +140,9 @@ bool Machine::step() {
         if (trans.match(_state, cur_syms)) {
             _state = trans.new_state();
             for (size_t i = 0; i < cur_syms.size(); ++i) {
-                _tapes.at(i).write(trans.new_syms().at(i));
+                if (trans.new_syms().at(i) != '*') {
+                    _tapes.at(i).write(trans.new_syms().at(i));
+                }
                 _tapes.at(i).move(trans.dirs().at(i));
             }
             return true;
