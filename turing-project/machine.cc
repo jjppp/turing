@@ -73,7 +73,7 @@ void Tape::move(Direction dir) {
     }
 }
 
-Tape::Tape(char blank) :
+Tape::Tape(char blank, std::string input) :
     _blank(blank) {
     _cur        = std::make_shared<Node>(Node{._content = _blank});
     _cur->_prev = std::make_shared<Node>(Node{._content = _blank});
@@ -81,7 +81,7 @@ Tape::Tape(char blank) :
 
     _cur->_prev->_prev = _cur->_prev;
     _cur->_prev->_next = _cur;
-    _cur->_index       = 0;
+    _cur->_index       = input.size() - 1;
 
     _cur->_next->_next = _cur->_next;
     _cur->_next->_prev = _cur;
@@ -91,4 +91,51 @@ Tape::Tape(char blank) :
 
     _rm         = _cur->_next;
     _rm->_index = std::numeric_limits<int>::max();
+
+    std::reverse(input.begin(), input.end());
+
+    for (char ch : input) {
+        write(ch);
+        move(Tape::L);
+    }
+}
+
+Tape::Tape(char blank) :
+    Tape::Tape(blank, "") {
+}
+
+Machine::Machine(
+    size_t                    n,
+    const std::string        &input,
+    const vector<Transition> &transitions,
+    const State              &initial_state) :
+    _n(n),
+    _transitions(transitions),
+    _state(initial_state) {
+    // init tapes
+    _tapes.reserve(_n);
+    _tapes.push_back(Tape{'_', input});
+    for (size_t i = 1; i < _n; ++i) {
+        _tapes.push_back(Tape{'_'});
+    }
+}
+
+void Machine::step() {
+    for (auto trans : _transitions) {
+        vector<char> cur_syms(_n);
+
+        std::transform(
+            _tapes.begin(),
+            _tapes.end(),
+            cur_syms.begin(),
+            [](const Tape &tp) {
+                return tp.cur_sym();
+            });
+        if (trans.match(_state, cur_syms)) {
+            _state = trans.new_state();
+            for (size_t i = 0; i < cur_syms.size(); ++i) {
+                _tapes.at(i).write(trans.new_syms().at(i));
+            }
+        }
+    }
 }

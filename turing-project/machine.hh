@@ -19,6 +19,8 @@ class Tape {
 
     Tape(char blank);
 
+    Tape(char blank, std::string input);
+
     char cur_sym() const {
         return _cur->_content;
     }
@@ -105,14 +107,21 @@ class Transition {
 
 class Machine {
   public:
-    Machine();
+    Machine(
+        size_t                    n,
+        const std::string        &input,
+        const vector<Transition> &transitions,
+        const State              &initial_state);
 
     size_t n_tape() const {
         return _n;
     }
 
+    void step();
+
   private:
-    vector<Tape>       _tapes;
-    vector<Transition> _transitions;
-    size_t             _n;
+    const vector<Transition> _transitions;
+    const size_t             _n;
+    vector<Tape>             _tapes;
+    State                    _state;
 };
