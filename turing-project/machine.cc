@@ -1,6 +1,7 @@
 #include "machine.hh"
 #include "utils.hh"
 #include <cctype>
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -39,7 +40,7 @@ std::vector<std::pair<char, int>> Tape::to_vec() {
     std::vector<std::pair<char, int>> result{};
     gc();
     for (
-        auto it = _lm;
+        auto it = _lm->_next;
         it != _rm;
         it = it->_next) {
         result.push_back(std::make_pair(it->_content, it->_index));
@@ -122,7 +123,8 @@ Machine::Machine(
     const State              &initial_state) :
     _n(n),
     _transitions(transitions),
-    _state(initial_state) {
+    _state(initial_state),
+    _n_step(0) {
     // init tapes
     _tapes.reserve(_n);
     _tapes.push_back(Tape{'_', input});
@@ -131,11 +133,55 @@ Machine::Machine(
     }
 }
 
-bool Machine::step() {
+void Machine::print_vec(const std::string &spec, const std::vector<std::string> &vec) const {
+    std::cout << spec;
+    std::for_each(
+        vec.begin(),
+        vec.end(),
+        [](const std::string &str) {
+            std::cout << str << " ";
+        });
+    std::cout << std::endl;
+}
+
+bool Machine::step(bool is_verbose) {
     vector<char> cur_syms;
     for (const auto &tp : _tapes) {
         cur_syms.push_back(tp.cur_sym());
     }
+
+    if (is_verbose) {
+        std::cout << "Step   : "
+                  << n_step()
+                  << std::endl;
+        std::cout << "State  : "
+                  << _state.name()
+                  << std::endl;
+        for (size_t i = 0; i < n_tape(); ++i) {
+            std::vector<std::string> prt_index, prt_sym, prt_head;
+
+            for (auto pair : _tapes.at(i).to_vec()) {
+                std::string index = std::to_string(std::abs(pair.second));
+                std::string sym(1, pair.first);
+                std::string head(
+                    index.size(),
+                    (pair.second == _tapes.at(i).cur_index()) ? '^' : ' ');
+
+                sym.append(std::string(index.size() - 1, ' '));
+                head.append(std::string(index.size() - 1, ' '));
+
+                prt_index.push_back(index);
+                prt_sym.push_back(sym);
+                prt_head.push_back(head);
+            }
+            print_vec("Index" + std::to_string(i) + " : ", prt_index);
+            print_vec("Tape" + std::to_string(i) + "  : ", prt_sym);
+            print_vec("Head" + std::to_string(i) + "  : ", prt_head);
+        }
+        std::cout << "---------------------------------------------" << std::endl;
+    }
+
+    _n_step++;
     for (auto trans : _transitions) {
         if (trans.match(_state, cur_syms)) {
             _state = trans.new_state();

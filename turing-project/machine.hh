@@ -139,13 +139,20 @@ class Machine {
         return _n;
     }
 
+    size_t n_step() const {
+        return _n_step;
+    }
+
     std::string output();
 
-    bool step();
+    bool step(bool is_verbose);
 
   private:
     const vector<Transition> _transitions;
     const size_t             _n;
     vector<Tape>             _tapes;
     State                    _state;
+    size_t                   _n_step;
+
+    void print_vec(const std::string &spec, const std::vector<std::string> &vec) const;
 };

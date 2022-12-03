@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 
     try {
         auto machine = parser::parse_file(arg_result.tm_filename, arg_result.input);
-        while (machine.step())
+        while (machine.step(arg_result.is_verbose))
             ;
 
         std::cout
