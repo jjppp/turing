@@ -1,5 +1,6 @@
 #include "parser.hh"
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <regex>
 #include <stdexcept>
@@ -38,24 +39,36 @@ std::string parse_id(std::string::const_iterator &it) {
     std::smatch result{};
 
     parse_skip(it);
+    if (!std::isalnum(*it) && *it != '_') {
+        throw parser_exception("expected identifier");
+    }
     if (std::regex_search(it, _end, result, p_id)) {
         it += result[0].length();
         return result[0].str();
     } else {
-        throw std::runtime_error("parser: regex");
+        throw parser_exception("expected identifier");
     }
 }
 
 // parse a comma seperated list of identifiers
 std::vector<std::string> parse_id_list(std::string::const_iterator &it) {
     std::vector<std::string> result{};
-    parse_char(it, '{');
+    if (!parse_char(it, '{')) {
+        throw parser_exception("expected '{'");
+    }
     result.push_back(parse_id(it));
 
     while (it != _end && parse_char(it, ',')) {
         result.push_back(parse_id(it));
     }
-    parse_char(it, '}');
+
+    if (!parse_char(it, '}')) {
+        throw parser_exception("expected '}'");
+    }
+    if (result.empty()) {
+        throw parser_exception("expected non-empty list");
+    }
+
     return result;
 }
 
@@ -82,8 +95,11 @@ vector<Tape::Direction> parse_dirs(std::string::const_iterator &it) {
             case 'l': dirs.push_back(Tape::L); break;
             case 'r': dirs.push_back(Tape::R); break;
             case '*': dirs.push_back(Tape::N); break;
-            default: throw std::runtime_error("parser");
         }
+    }
+
+    if (dirs.empty()) {
+        throw parser_exception("expected directions");
     }
 
     return dirs;
@@ -125,6 +141,7 @@ Machine parse(const std::string &program, const std::string &input) {
     vector<char>       tape_syms;
     State              initial_state{""};
     char               blank;
+    size_t             tm_counter = 0;
 
     while (it != _end) {
         parse_skip(it);
@@ -134,56 +151,84 @@ Machine parse(const std::string &program, const std::string &input) {
             ch = *it++;
             switch (ch) {
                 case 'Q': {
-                    parse_char(it, '=');
+                    tm_counter++;
+                    if (!parse_char(it, '=')) {
+                        throw parser_exception("expected '='");
+                    }
                     for (auto str : parse_id_list(it)) {
                         states.push_back(State(str));
                     }
                     break;
                 }
                 case 'S': {
-                    parse_char(it, '=');
+                    tm_counter++;
+                    if (!parse_char(it, '=')) {
+                        throw parser_exception("expected '='");
+                    }
                     for (auto str : parse_id_list(it)) {
                         input_syms.push_back(str.at(0));
                     }
                     break;
                 }
                 case 'G': {
-                    parse_char(it, '=');
+                    tm_counter++;
+                    if (!parse_char(it, '=')) {
+                        throw parser_exception("expected '='");
+                    }
                     for (auto str : parse_id_list(it)) {
                         tape_syms.push_back(str.at(0));
                     }
                     break;
                 }
                 case 'q': {
-                    parse_char(it, '0');
-                    parse_char(it, '=');
+                    tm_counter++;
+                    if (!parse_char(it, '0')) {
+                        throw parser_exception("expected 'q0'");
+                    }
+                    if (!parse_char(it, '=')) {
+                        throw parser_exception("expected '='");
+                    }
                     initial_state = State(parse_id(it));
                     break;
                 }
                 case 'B': {
-                    parse_char(it, '=');
+                    tm_counter++;
+                    if (!parse_char(it, '=')) {
+                        throw parser_exception("expected '='");
+                    }
                     parse_skip(it);
                     blank = *it++;
                     break;
                 }
                 case 'F': {
-                    parse_char(it, '=');
+                    tm_counter++;
+                    if (!parse_char(it, '=')) {
+                        throw parser_exception("expected '='");
+                    }
                     parse_id_list(it);
                     break;
                 }
                 case 'N': {
-                    parse_char(it, '=');
+                    if (tm_counter != 6) {
+                        throw parser_exception("expected complete .tm file");
+                    }
+
+                    if (!parse_char(it, '=')) {
+                        throw parser_exception("expected '='");
+                    }
                     parse_skip(it);
                     _n          = std::stoi(parse_id(it));
                     transitions = parse_tran(it);
                     return Machine{_n, input, transitions, initial_state};
                     break;
                 }
-                default: throw std::runtime_error("parser");
+                default: throw parser_exception("expected Q, S, G, q0, B, F, N");
             }
+        } else {
+            throw parser_exception("expected '#'");
         }
     }
-    throw std::runtime_error("parser");
+    throw parser_exception("expected complete .tm file");
 }
 
 Machine parse_file(const std::string &filename, const std::string &input) {
@@ -195,7 +240,7 @@ Machine parse_file(const std::string &filename, const std::string &input) {
         }
         return parse(program, input);
     } else {
-        throw std::runtime_error("cannot open file");
+        throw parser_exception("cannot open file");
     }
 }
 

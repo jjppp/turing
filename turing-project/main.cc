@@ -1,5 +1,6 @@
 #include "machine.hh"
 #include "parser.hh"
+#include <exception>
 #include <getopt.h>
 #include <iostream>
 #include <string>
@@ -72,13 +73,19 @@ static ArgResult parse_args(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     auto arg_result = parse_args(argc, argv);
 
-    auto machine = parser::parse_file(arg_result.tm_filename, arg_result.input);
+    try {
+        auto machine = parser::parse_file(arg_result.tm_filename, arg_result.input);
+        while (machine.step())
+            ;
 
-    while (machine.step())
-        ;
-
-    std::cout
-        << machine.output()
-        << std::endl;
+        std::cout
+            << machine.output()
+            << std::endl;
+    } catch (parser::parser_exception e) {
+        std::cerr
+            << "syntax error: "
+            << e.what()
+            << std::endl;
+    }
     return 0;
 }

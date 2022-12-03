@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <exception>
 #include <stdexcept>
 #include <string>
 #include <fstream>
@@ -12,6 +13,20 @@
 /* Parser for .tm files
  */
 namespace parser {
+
+class parser_exception : public std::exception {
+  public:
+    parser_exception(const std::string &msg) :
+        _msg(msg) {
+    }
+
+    const char *what() {
+        return _msg.c_str();
+    }
+
+  private:
+    const std::string _msg;
+};
 
 void parse_skip(std::string::const_iterator &it);
 
