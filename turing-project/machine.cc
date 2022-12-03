@@ -1,6 +1,7 @@
 #include "machine.hh"
 #include "utils.hh"
 #include <cctype>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -98,6 +99,7 @@ Tape::Tape(char blank, std::string input) :
         write(ch);
         move(Tape::L);
     }
+    move(Tape::R);
 }
 
 Tape::Tape(char blank) :
@@ -120,22 +122,24 @@ Machine::Machine(
     }
 }
 
-void Machine::step() {
+bool Machine::step() {
+    vector<char> cur_syms;
+    for (const auto &tp : _tapes) {
+        cur_syms.push_back(tp.cur_sym());
+    }
     for (auto trans : _transitions) {
-        vector<char> cur_syms(_n);
-
-        std::transform(
-            _tapes.begin(),
-            _tapes.end(),
-            cur_syms.begin(),
-            [](const Tape &tp) {
-                return tp.cur_sym();
-            });
         if (trans.match(_state, cur_syms)) {
             _state = trans.new_state();
             for (size_t i = 0; i < cur_syms.size(); ++i) {
                 _tapes.at(i).write(trans.new_syms().at(i));
+                _tapes.at(i).move(trans.dirs().at(i));
             }
+            return true;
         }
     }
+    return false;
+}
+
+std::string Machine::output() {
+    return _tapes[0].to_string();
 }

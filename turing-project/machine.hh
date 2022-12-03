@@ -55,21 +55,39 @@ class Tape {
 
 class State {
   public:
+    State(const std::string &name) :
+        _name(name) {
+    }
+
     auto name() -> std::string {
         return _name;
     }
 
     bool operator==(const State &rhs) const {
-        return _id == rhs._id && _name == rhs._name;
+        return _name == rhs._name;
     }
 
   private:
     std::string _name;
-    size_t      _id;
 };
 
 class Transition {
   public:
+    Transition(
+        State                   old_state,
+        State                   new_state,
+        vector<char>            old_syms,
+        vector<char>            new_syms,
+        vector<Tape::Direction> dirs,
+        size_t                  n) :
+        _old_state(old_state),
+        _new_state(new_state),
+        _old_syms(old_syms),
+        _new_syms(new_syms),
+        _dirs(dirs),
+        _n(n) {
+    }
+
     State old_state() const {
         return _old_state;
     }
@@ -86,8 +104,8 @@ class Transition {
         return _new_syms;
     }
 
-    Tape::Direction dir() const {
-        return _dir;
+    vector<Tape::Direction> dirs() const {
+        return _dirs;
     }
 
     size_t n_tape() const {
@@ -99,10 +117,10 @@ class Transition {
   private:
     using Direction = Tape::Direction;
 
-    State        _old_state, _new_state;
-    vector<char> _old_syms, _new_syms;
-    Direction    _dir;
-    size_t       _n;
+    State             _old_state, _new_state;
+    vector<char>      _old_syms, _new_syms;
+    vector<Direction> _dirs;
+    size_t            _n;
 };
 
 class Machine {
@@ -117,7 +135,9 @@ class Machine {
         return _n;
     }
 
-    void step();
+    std::string output();
+
+    bool step();
 
   private:
     const vector<Transition> _transitions;

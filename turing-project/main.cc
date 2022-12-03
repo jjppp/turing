@@ -1,3 +1,5 @@
+#include "machine.hh"
+#include "parser.hh"
 #include <getopt.h>
 #include <iostream>
 #include <string>
@@ -69,5 +71,14 @@ static ArgResult parse_args(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
     auto arg_result = parse_args(argc, argv);
+
+    auto machine = parser::parse_file(arg_result.tm_filename, arg_result.input);
+
+    while (machine.step())
+        ;
+
+    std::cout
+        << machine.output()
+        << std::endl;
     return 0;
 }
