@@ -1,30 +1,38 @@
 #include "parser.hh"
+#include "checker.hh"
 #include <algorithm>
 #include <cctype>
 #include <iostream>
 #include <regex>
 #include <stdexcept>
+#include <string>
 
 namespace parser {
 
+// bad practice, but should be okay for a lab assignment.
 static std::string::const_iterator _end;
 
 static size_t _n;
 
+static size_t _lineno;
+
 // skip comments, blanks, spaces
-void parse_skip(std::string::const_iterator &it) {
+static void parse_skip(std::string::const_iterator &it) {
     while (it != _end && (std::isblank(*it) || std::isspace(*it) || *it == ';')) {
         if (*it == ';') {
             while (it != _end && *it != '\n') {
                 it++;
             }
         }
+        if (*it == '\n') {
+            _lineno++;
+        }
         it++;
     }
 }
 
 // parse exactly one character, ignoring leading skips
-bool parse_char(std::string::const_iterator &it, char ch) {
+static bool parse_char(std::string::const_iterator &it, char ch) {
     parse_skip(it);
     if (*it == ch) {
         it++;
@@ -34,27 +42,45 @@ bool parse_char(std::string::const_iterator &it, char ch) {
 }
 
 // parse identifier, ignoring leading skips
-std::string parse_id(std::string::const_iterator &it) {
-    std::regex  p_id("[a-zA-Z_0-9]+");
+static std::string parse_id(std::string::const_iterator &it) {
+    std::regex  p_id("^[a-zA-Z_0-9]+");
     std::smatch result{};
 
     parse_skip(it);
-    if (!std::isalnum(*it) && *it != '_') {
-        throw parser_exception("expected identifier");
-    }
     if (std::regex_search(it, _end, result, p_id)) {
         it += result[0].length();
         return result[0].str();
     } else {
-        throw parser_exception("expected identifier");
+        throw parser_exception::of(
+            "parsing identifier",
+            _lineno,
+            "[a-zA-Z_0-9]",
+            *it);
+    }
+}
+
+// parse exactly one symbol
+static char parse_sym(std::string::const_iterator &it) {
+    std::regex  p_sym("^[^ ,:;{}\\*]");
+    std::smatch result{};
+
+    if (std::regex_search(it, _end, result, p_sym)) {
+        it += result[0].length();
+        return result[0].str().at(0);
+    } else {
+        return 0;
     }
 }
 
 // parse a comma seperated list of identifiers
-std::vector<std::string> parse_id_list(std::string::const_iterator &it) {
+static std::vector<std::string> parse_id_list(std::string::const_iterator &it) {
     std::vector<std::string> result{};
     if (!parse_char(it, '{')) {
-        throw parser_exception("expected '{'");
+        throw parser_exception::of(
+            "parsing list",
+            _lineno,
+            "{",
+            *it);
     }
     result.push_back(parse_id(it));
 
@@ -63,29 +89,33 @@ std::vector<std::string> parse_id_list(std::string::const_iterator &it) {
     }
 
     if (!parse_char(it, '}')) {
-        throw parser_exception("expected '}'");
-    }
-    if (result.empty()) {
-        throw parser_exception("expected non-empty list");
+        throw parser_exception::of(
+            "parsing list",
+            _lineno,
+            "}",
+            *it);
     }
 
     return result;
 }
 
-vector<char> parse_syms(std::string::const_iterator &it) {
+static vector<char> parse_syms(std::string::const_iterator &it) {
     std::vector<char> result;
 
-    for (auto ch : parse_id(it)) {
+    parse_skip(it);
+    for (char ch = parse_sym(it);
+         ch != 0;
+         ch = parse_sym(it)) {
         result.push_back(ch);
     }
     return result;
 }
 
-State parse_state(std::string::const_iterator &it) {
+static State parse_state(std::string::const_iterator &it) {
     return State(parse_id(it));
 }
 
-vector<Tape::Direction> parse_dirs(std::string::const_iterator &it) {
+static vector<Tape::Direction> parse_dirs(std::string::const_iterator &it) {
     vector<Tape::Direction> dirs;
     parse_skip(it);
 
@@ -99,13 +129,17 @@ vector<Tape::Direction> parse_dirs(std::string::const_iterator &it) {
     }
 
     if (dirs.empty()) {
-        throw parser_exception("expected directions");
+        throw parser_exception::of(
+            "parsing directions",
+            _lineno,
+            "[lr\\*]",
+            *it);
     }
 
     return dirs;
 }
 
-std::vector<Transition> parse_tran(std::string::const_iterator &it) {
+static std::vector<Transition> parse_tran(std::string::const_iterator &it) {
     std::vector<Transition> transitions;
 
     parse_skip(it);
@@ -153,7 +187,11 @@ Machine parse(const std::string &program, const std::string &input) {
                 case 'Q': {
                     tm_counter++;
                     if (!parse_char(it, '=')) {
-                        throw parser_exception("expected '='");
+                        throw parser_exception::of(
+                            "parsing #Q",
+                            _lineno,
+                            "=",
+                            *it);
                     }
                     for (auto str : parse_id_list(it)) {
                         states.push_back(State(str));
@@ -163,7 +201,11 @@ Machine parse(const std::string &program, const std::string &input) {
                 case 'S': {
                     tm_counter++;
                     if (!parse_char(it, '=')) {
-                        throw parser_exception("expected '='");
+                        throw parser_exception::of(
+                            "parsing #S",
+                            _lineno,
+                            "=",
+                            *it);
                     }
                     for (auto str : parse_id_list(it)) {
                         input_syms.push_back(str.at(0));
@@ -173,7 +215,11 @@ Machine parse(const std::string &program, const std::string &input) {
                 case 'G': {
                     tm_counter++;
                     if (!parse_char(it, '=')) {
-                        throw parser_exception("expected '='");
+                        throw parser_exception::of(
+                            "parsing #G",
+                            _lineno,
+                            "=",
+                            *it);
                     }
                     for (auto str : parse_id_list(it)) {
                         tape_syms.push_back(str.at(0));
@@ -183,10 +229,18 @@ Machine parse(const std::string &program, const std::string &input) {
                 case 'q': {
                     tm_counter++;
                     if (!parse_char(it, '0')) {
-                        throw parser_exception("expected 'q0'");
+                        throw parser_exception::of(
+                            "parsing #q0",
+                            _lineno,
+                            "q0",
+                            *it);
                     }
                     if (!parse_char(it, '=')) {
-                        throw parser_exception("expected '='");
+                        throw parser_exception::of(
+                            "parsing #q0",
+                            _lineno,
+                            "=",
+                            *it);
                     }
                     initial_state = State(parse_id(it));
                     break;
@@ -194,7 +248,11 @@ Machine parse(const std::string &program, const std::string &input) {
                 case 'B': {
                     tm_counter++;
                     if (!parse_char(it, '=')) {
-                        throw parser_exception("expected '='");
+                        throw parser_exception::of(
+                            "parsing #B",
+                            _lineno,
+                            "=",
+                            *it);
                     }
                     parse_skip(it);
                     blank = *it++;
@@ -203,32 +261,60 @@ Machine parse(const std::string &program, const std::string &input) {
                 case 'F': {
                     tm_counter++;
                     if (!parse_char(it, '=')) {
-                        throw parser_exception("expected '='");
+                        throw parser_exception::of(
+                            "parsing #F",
+                            _lineno,
+                            "=",
+                            *it);
                     }
                     parse_id_list(it);
                     break;
                 }
                 case 'N': {
                     if (tm_counter != 6) {
-                        throw parser_exception("expected complete .tm file");
+                        throw parser_exception::of(
+                            "parsing transitions",
+                            _lineno,
+                            "complete .tm file",
+                            tm_counter + '0');
                     }
 
                     if (!parse_char(it, '=')) {
-                        throw parser_exception("expected '='");
+                        throw parser_exception::of(
+                            "parsing #N",
+                            _lineno,
+                            "=",
+                            *it);
                     }
                     parse_skip(it);
                     _n          = std::stoi(parse_id(it));
                     transitions = parse_tran(it);
+
+                    Checker checker(tape_syms, input_syms);
+                    checker.check(input);
+
                     return Machine{_n, input, transitions, initial_state};
-                    break;
                 }
-                default: throw parser_exception("expected Q, S, G, q0, B, F, N");
+                default:
+                    throw parser_exception::of(
+                        "parsing #Q, #S, #G, #q0, #B, #F, #N",
+                        _lineno,
+                        "[QSGqBFN]",
+                        *it);
             }
         } else {
-            throw parser_exception("expected '#'");
+            throw parser_exception::of(
+                "parsing #Q, #S, #G, #q0, #B, #F, #N",
+                _lineno,
+                "#",
+                *it);
         }
     }
-    throw parser_exception("expected complete .tm file");
+    throw parser_exception::of(
+        "parsing .tm file",
+        _lineno,
+        "complete .tm file",
+        *it);
 }
 
 Machine parse_file(const std::string &filename, const std::string &input) {
@@ -240,7 +326,11 @@ Machine parse_file(const std::string &filename, const std::string &input) {
         }
         return parse(program, input);
     } else {
-        throw parser_exception("cannot open file");
+        throw parser_exception::of(
+            "on opening .tm file",
+            _lineno,
+            "a successful open",
+            'X');
     }
 }
 
