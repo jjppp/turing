@@ -14,7 +14,7 @@ static std::string::const_iterator _end;
 
 static size_t _n;
 
-static size_t _lineno;
+static size_t _lineno = 1;
 
 // skip comments, blanks, spaces
 static void parse_skip(std::string::const_iterator &it) {
@@ -61,7 +61,7 @@ static std::string parse_id(std::string::const_iterator &it) {
 
 // parse exactly one symbol
 static char parse_sym(std::string::const_iterator &it) {
-    std::regex  p_sym("^[^ ,:;{}\\*]");
+    std::regex  p_sym("^[^ ,;{}]");
     std::smatch result{};
 
     if (std::regex_search(it, _end, result, p_sym)) {
@@ -72,9 +72,12 @@ static char parse_sym(std::string::const_iterator &it) {
     }
 }
 
-// parse a comma seperated list of identifiers
-static std::vector<std::string> parse_id_list(std::string::const_iterator &it) {
-    std::vector<std::string> result{};
+// parse a comma seperated list.
+template <typename T>
+static std::vector<T> parse_list_of(
+    std::string::const_iterator &it,
+    T (*p)(std::string::const_iterator &)) {
+    std::vector<T> result{};
     if (!parse_char(it, '{')) {
         throw parser_exception::of(
             "parsing list",
@@ -82,10 +85,10 @@ static std::vector<std::string> parse_id_list(std::string::const_iterator &it) {
             "{",
             *it);
     }
-    result.push_back(parse_id(it));
+    result.push_back(p(it));
 
     while (it != _end && parse_char(it, ',')) {
-        result.push_back(parse_id(it));
+        result.push_back(p(it));
     }
 
     if (!parse_char(it, '}')) {
@@ -193,7 +196,7 @@ Machine parse(const std::string &program, const std::string &input) {
                             "=",
                             *it);
                     }
-                    for (auto str : parse_id_list(it)) {
+                    for (auto str : parse_list_of(it, parse_id)) {
                         states.push_back(State(str));
                     }
                     break;
@@ -207,8 +210,8 @@ Machine parse(const std::string &program, const std::string &input) {
                             "=",
                             *it);
                     }
-                    for (auto str : parse_id_list(it)) {
-                        input_syms.push_back(str.at(0));
+                    for (auto ch : parse_list_of(it, parse_sym)) {
+                        input_syms.push_back(ch);
                     }
                     break;
                 }
@@ -221,8 +224,8 @@ Machine parse(const std::string &program, const std::string &input) {
                             "=",
                             *it);
                     }
-                    for (auto str : parse_id_list(it)) {
-                        tape_syms.push_back(str.at(0));
+                    for (auto ch : parse_list_of(it, parse_sym)) {
+                        tape_syms.push_back(ch);
                     }
                     break;
                 }
@@ -267,7 +270,7 @@ Machine parse(const std::string &program, const std::string &input) {
                             "=",
                             *it);
                     }
-                    parse_id_list(it);
+                    parse_list_of(it, parse_id);
                     break;
                 }
                 case 'N': {
