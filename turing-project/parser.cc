@@ -294,7 +294,15 @@ Machine parse(const std::string &program, const std::string &input) {
                     transitions = parse_tran(it);
 
                     Checker checker(tape_syms, input_syms);
-                    checker.check(input);
+                    try {
+                        checker.check(input);
+                    } catch (input_exception e) {
+                        throw parser_exception::of(
+                                "input error", 
+                                e.index(), 
+                                "input symbols", 
+                                e.got());
+                    }
 
                     return Machine{_n, input, transitions, initial_state};
                 }

@@ -7,8 +7,17 @@
 
 class input_exception : public std::exception {
   public:
-    input_exception(size_t index) :
-        _index(index) {
+    input_exception(size_t index, char got) :
+        _index(index),
+        _got(got) {
+    }
+
+    size_t index() const {
+        return _index;
+    }
+
+    char got() const {
+        return _got;
     }
 
     size_t what() {
@@ -17,6 +26,7 @@ class input_exception : public std::exception {
 
   private:
     const size_t _index;
+    const char _got;
 };
 
 class Checker {
@@ -36,7 +46,7 @@ class Checker {
                     _input_syms.end(),
                     ch)
                 == _input_syms.end()) {
-                throw input_exception(i);
+                throw input_exception(i, ch);
             }
         }
     }
