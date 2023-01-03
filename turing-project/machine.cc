@@ -17,8 +17,12 @@ bool Transition::match(State cur_state, vector<char> cur_syms) const {
         return false;
     }
     for (size_t i = 0; i < cur_syms.size(); ++i) {
-        if (cur_syms.at(i) != old_syms().at(i)
-            && old_syms().at(i) != '*') {
+        if (old_syms().at(i) == '*'
+            && cur_syms.at(i) == '_') {
+            return false;
+        }
+        if (old_syms().at(i) != '*'
+            && cur_syms.at(i) != old_syms().at(i)) {
             return false;
         }
     }
